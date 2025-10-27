@@ -1,7 +1,8 @@
-get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALSE, gene_list = c("BRCA1r", "BRCA2r", "PALB2r", "CHEK2r", "ATMr", "RAD51Cr", "RAD51Dr", "BARD1r"), make_blank_stack = TRUE, data_stack_for_mice_colclasses, variable_rfs = "all", blank_row_path, blank_row_colclasses, flb_path, fams_path, given_rfs = c(), rf_values = c(), inc_family = TRUE, n_repeats = 1000, n_iter = 10, indiv_yob, indiv_age, censoring_age, bc_prs_alpha, save_filename = "default", gene_imp_type = "categorical", output_diagnostics = FALSE) {
+get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALSE, gene_list = c("BRCA1r", "BRCA2r", "PALB2r", "CHEK2r", "ATMr", "RAD51Cr", "RAD51Dr", "BARD1r"), n_chain = 1, make_blank_stack = TRUE, save_long = FALSE, data_stack_for_mice_colclasses = c("factor", "factor", "factor", "factor", "factor", "numeric", "factor", "factor", "factor", "numeric", "numeric", "factor", "numeric", "numeric", "factor", "factor", "factor", "factor", "factor", "factor", "factor", "numeric", "factor"), variable_rfs = "all", blank_row_path, blank_row_colclasses = c(rep("character", 7), "numeric", "numeric", "character", rep("numeric", 6), rep("character", 21), "numeric", "numeric", "numeric", "character", "character", rep("numeric", 8), "character"), flb_path, fams_path, given_rfs = c(), rf_values = c(), quickpred_no = 50000, quickpred_cor = 1, inc_family = TRUE, n_repeats = 1000, n_iter = 10, indiv_yob, indiv_age, censoring_age, bc_prs_alpha = 0.44, save_filename = "default", gene_imp_type = "categorical", output_diagnostics = FALSE) {
   
-  library(mice)
-  library(tidyverse)
+  # certain combinations of missing risk factors currently not working
+  
+  require(mice)
   
   if ("pedigree" %in% given_rfs){
     impute_pedigree <- 0
@@ -9,6 +10,7 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
   } else {
     impute_pedigree <- 1
   }
+  
   
   # get blank row
   blank_row <- read.csv(blank_row_path, colClasses = rep("character", 51))
@@ -18,7 +20,13 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
     blank_row$sibling.breast_v0 <- NA
     blank_row$sibling.prostate_v0 <- NA
     blank_row$father.prostate_v0 <- NA
-  }
+  } #else {
+  #   blank_row$mother.breast_v0 <- fh_given$mother.breast_v0
+  #   blank_row$sibling.breast_v0 <- fh_given$sibling.breast_v0
+  #   blank_row$sibling.prostate_v0 <- fh_given$sibling.prostate_v0
+  #   blank_row$father.prostate_v0 <- fh_given$father.prostate_v0
+  # }
+  
   
   # add known information
   
@@ -39,8 +47,8 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
   blank_row_stack$FamID <- 1:n_repeats
   
   
-  
-  # introduce data
+
+  # introduce the data
   
   data_stack_for_mice <- read.csv(data_stack_for_mice_path)
   data_stack_for_mice <- data_stack_for_mice[,colnames(data_stack_for_mice) != "X"]
@@ -67,12 +75,16 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
   }
   
   
+  
+  
+  
   if (gene_imp_type == "categorical"){
     stack_blank_data <- add_column_categorical_major_gene(stack_blank_data)
     stack_blank_data <- stack_blank_data[,which(!(colnames(stack_blank_data) %in% c("BRCA1r", "BRCA2r", "PALB2r", "ATMr", "CHEK2r", "RAD51Cr", "RAD51Dr", "BARD1r")))]
   } else {
     stack_blank_data <- stack_blank_data[,which(colnames(stack_blank_data) != "categorical_gene")]
   }
+  
   
   
   vrf_all <- 0
@@ -88,8 +100,6 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
     stop("variable_rfs not all valid rfs for imputation")
   }
   
-  # do the mice
-  
   # can add in 'post' (?) - positive values only for some cols
   mice_colnames <- c(variable_rfs,given_rfs)
   if (gene_imp_type == "categorical"){
@@ -102,15 +112,32 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
     stack_blank_data$Volpara <- log(stack_blank_data$Volpara)
   }
   
-  if ("Alcohol" %in% mice_colnames){
-    stack_blank_data$Alcohol <- log(stack_blank_data$Alcohol)
+  if ("Alcohol" %in% variable_rfs | vrf_all == 1){
+    mice_colnames <- mice_colnames[which(mice_colnames != "Alcohol")]
+    mice_colnames <- c(mice_colnames, "Alcohol_01")
+    
+    alcohol_01 <- stack_blank_data$Alcohol
+    alcohol_01[which(!is.na(alcohol_01) & alcohol_01 == 0)] <- 0
+    alcohol_01[which(!is.na(alcohol_01) & alcohol_01 > 0)] <- 1
+    stack_blank_data$Alcohol_01 <- as.factor(alcohol_01)
   }
   
-  part_mice_output <- mice(stack_blank_data[,mice_colnames], m = 1, defaultMethod = c("norm", "logreg", "polyreg", "polr"), ignore = c(rep(TRUE, n_repeats), rep(FALSE, nrow(stack_blank_data)-nrepeats)), maxit = n_iter)
+  
+  # do the mice
+  
+  #part_mice_output <- mice(stack_blank_data[1:(quickpred_no + n_repeats),mice_colnames], pred=quickpred(stack_blank_data[1:(quickpred_no + 1),], mincor=quickpred_cor), m = 1, defaultMethod = c("norm", "logreg", "polyreg", "polr"), ignore = c(rep(TRUE, n_repeats), rep(FALSE, quickpred_no)), maxit = n_iter)
+  part_mice_output <- mice(stack_blank_data[1:(quickpred_no + n_repeats),mice_colnames], pred=quickpred(stack_blank_data[1:(quickpred_no + 1),mice_colnames], mincor=quickpred_cor), m = n_chain, defaultMethod = c("norm", "logreg", "polyreg", "polr"), ignore = c(rep(TRUE, n_repeats), rep(FALSE, quickpred_no)), maxit = n_iter)
+  #part_mice_output <- mice(stack_blank_data[1:(quickpred_no + n_repeats),mice_colnames], m = 1, defaultMethod = c("norm", "logreg", "polyreg", "polr"), ignore = c(rep(TRUE, n_repeats), rep(FALSE, quickpred_no)), maxit = n_iter)
   part_mice_long <- complete(part_mice_output, action = "long")
   part_mice <- part_mice_long[which(part_mice_long$.imp == max(part_mice_long$.imp)),]
   
-
+  # print(plot(part_mice_output))
+  if (output_diagnostics == TRUE){
+    save_diagnostics_mice(part_mice_output)
+  }
+  
+  #save_dataset_for_boadicea(part_mice)    # save in case of future crash
+  # 
   # if ("Alcohol" %in% variable_rfs){
   #   for (i in 1:nrow(part_mice)){
   #     if (!is.na(part_mice$Alcohol[i]) & part_mice$Alcohol[i] < 0){
@@ -136,6 +163,32 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
   # }
   
   
+  # add back alcohol values
+  
+  if ("Alcohol" %in% variable_rfs | vrf_all == 1){
+    part_mice$Alcohol <- stack_blank_data$Alcohol
+    part_mice_nonzero_alcohol <- subset(part_mice, !is.na(Alcohol_01) & Alcohol_01 == 1)
+    n_indiv <- nrow(subset(part_mice_nonzero_alcohol, .id<=n_repeats))
+    n_data <- nrow(subset(part_mice_nonzero_alcohol, .id>n_repeats))
+    
+    part_mice_nonzero_alcohol$Alcohol <- log(part_mice_nonzero_alcohol$Alcohol)
+    
+    part_mice_alcohol_output <- mice(part_mice_nonzero_alcohol[,!(colnames(part_mice_nonzero_alcohol) %in% c(".imp", ".id"))], m = 1, defaultMethod = c("norm", "logreg", "polyreg", "polr"), ignore = c(rep(TRUE, n_indiv), rep(FALSE, n_data)), maxit = 1)
+    
+    part_mice_alcohol_long <- complete(part_mice_alcohol_output, action = "long")
+    part_mice_alcohol <- part_mice_alcohol_long[which(part_mice_alcohol_long$.imp == max(part_mice_alcohol_long$.imp)),]
+    
+    part_mice_alcohol$Alcohol <- exp(part_mice_alcohol$Alcohol)
+    
+    part_mice[which(part_mice$Alcohol_01 == 1),]$Alcohol <- part_mice_alcohol$Alcohol
+    part_mice[which(part_mice$Alcohol_01 == 0),]$Alcohol <- rep(0, length(which(part_mice$Alcohol_01 == 0)))
+  }
+  
+  if (save_long == TRUE){
+    write.csv(part_mice)
+  }
+  
+  
   # add back flb
   
   if ("First_live_birth" %in% variable_rfs | vrf_all == 1){
@@ -154,15 +207,12 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
     n_indiv <- nrow(subset(part_mice_nonzero_parity, .id<=n_repeats))
     n_data <- nrow(subset(part_mice_nonzero_parity, .id>n_repeats))
     
-    part_mice_flb_output <- mice(part_mice_nonzero_parity[,!(colnames(part_mice_nonzero_parity) %in% c(".imp", ".id"))], m = 1, defaultMethod = c("norm", "logreg", "polyreg", "polr"), ignore = c(rep(TRUE, n_indiv), rep(FALSE, n_data)), maxit = 1)
+    part_mice_flb_output <- mice(part_mice_nonzero_parity[,!(colnames(part_mice_nonzero_parity) %in% c(".imp", ".id", "Alcohol"))], m = 1, defaultMethod = c("norm", "logreg", "polyreg", "polr"), ignore = c(rep(TRUE, n_indiv), rep(FALSE, n_data)), maxit = 1)
     
     part_mice_flb_long <- complete(part_mice_flb_output, action = "long")
     part_mice_flb <- part_mice_flb_long[which(part_mice_flb_long$.id %in% 1:n_repeats & part_mice_flb_long$.imp == max(part_mice_flb_long$.imp)),]
     part_mice_flb$.id <- part_mice_nonzero_parity$.id[1:n_indiv]
     
-    if (output_diagnostics == TRUE){
-      save_diagnostics_mice(part_mice_flb_output)
-    }
     
     #save_dataset_for_boadicea(part_mice_flb)
     
@@ -222,16 +272,13 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
     full_mice_out$Volpara <- exp(full_mice_out$Volpara)
   }
   
-  # if ("Alcohol" %in% mice_colnames){
-  #   full_mice_out$Alcohol <- exp(full_mice_out$Alcohol)
-  # }
   
   # add back unused cols
   
   unused_cols <- colnames(stack_blank_data)[!(colnames(stack_blank_data) %in% given_rfs) & !(colnames(stack_blank_data) %in% variable_rfs)]
   
   for (i in unused_cols){
-    full_mice_out[,unused_cols[i]] <- rep(NA, nrow(full_mice_out))
+    full_mice_out[,i] <- rep(NA, nrow(full_mice_out))
   }
   
   # formatting for boadicea input
@@ -291,7 +338,7 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
     }
   }
   
-  
+
   if (gene_imp_type == "categorical"){
     full_mice_out_boadicea <- categorical_to_binary_major_gene(full_mice_out_boadicea)
   }
@@ -400,11 +447,12 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
   menopause_status[which(is.na(full_mice_out_boadicea$Menopause) & full_mice_out_boadicea$Proband == 1)] <- rep(1, length(which(is.na(full_mice_out_boadicea$Menopause) & full_mice_out_boadicea$Proband == 1)))
   menopause_status[which(!is.na(full_mice_out_boadicea$Menopause))] <- rep(2, length(which(!is.na(full_mice_out_boadicea$Menopause))))
   mamm_density <- mamm_density + menopause_status
-  
+
   full_mice_out_boadicea$Mamm_density <- mamm_density
-  
-  save_dataset(full_mice_out_boadicea, path = "~/OneDrive/DEV-Models-Batching-4/data/", filename = save_filename)
-  
+
+  save_dataset_for_boadicea(full_mice_out_boadicea)
+
 }
+
 
 
