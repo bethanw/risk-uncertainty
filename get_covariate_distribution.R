@@ -160,7 +160,7 @@ get_covariate_distribution <- function(data_stack_for_mice_path,
   
   # print(plot(part_mice_output))
   if (output_diagnostics == TRUE){
-    save_diagnostics_mice(part_mice_output)
+    print(plot(part_mice_output))
   }
   
   if (plot_density == TRUE){
