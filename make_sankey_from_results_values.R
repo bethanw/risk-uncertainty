@@ -12,7 +12,7 @@ make_sankey_from_results_values <- function(results1, results2, results3 = "blan
   mod_risk_1 <- which(results1 >= 0.03 & results1 < 0.08)
   hig_risk_1 <- which(results1 >= 0.08)
   categories_1 <- rep(NA, length(results1))
-  categories_1[pop_risk_1] <- "Population Risk"
+  categories_1[pop_risk_1] <- "Near-population Risk"
   categories_1[mod_risk_1] <- "Moderate Risk"
   categories_1[hig_risk_1] <- "High Risk"
   
@@ -20,7 +20,7 @@ make_sankey_from_results_values <- function(results1, results2, results3 = "blan
   mod_risk_2 <- which(results2 >= 0.03 & results2 < 0.08)
   hig_risk_2 <- which(results2 >= 0.08)
   categories_2 <- rep(NA, length(results2))
-  categories_2[pop_risk_2] <- "Population Risk"
+  categories_2[pop_risk_2] <- "Near-population Risk"
   categories_2[mod_risk_2] <- "Moderate Risk"
   categories_2[hig_risk_2] <- "High Risk"
   
@@ -36,7 +36,7 @@ make_sankey_from_results_values <- function(results1, results2, results3 = "blan
     mod_risk_3 <- which(results3 >= 0.03 & results3 < 0.08)
     hig_risk_3 <- which(results3 >= 0.08)
     categories_3 <- rep(NA, length(results3))
-    categories_3[pop_risk_3] <- "Population Risk"
+    categories_3[pop_risk_3] <- "Near-population Risk"
     categories_3[mod_risk_3] <- "Moderate Risk"
     categories_3[hig_risk_3] <- "High Risk"
     
@@ -48,7 +48,7 @@ make_sankey_from_results_values <- function(results1, results2, results3 = "blan
   
   if (is.na(original_category)){
     if (mean(results1) < 0.03){
-      original_category <- "Population Risk"
+      original_category <- "Near-population Risk"
     } else if (mean(results1) < 0.08){
       original_category <- "Moderate Risk"
     } else {
@@ -67,7 +67,7 @@ make_sankey_from_results_values <- function(results1, results2, results3 = "blan
   }
   
   
-  factor_risk_levels <- c("Population Risk", "Moderate Risk", "High Risk")
+  factor_risk_levels <- c("Near-population Risk", "Moderate Risk", "High Risk")
   if (inc_low_risk == TRUE){
     factor_risk_levels <- c("Low Risk", factor_risk_levels)
   }
@@ -75,7 +75,7 @@ make_sankey_from_results_values <- function(results1, results2, results3 = "blan
   df$node <- factor(df$node, levels = factor_risk_levels)
   df$next_node <- factor(df$next_node, levels = factor_risk_levels)
   
-  colours_fill <- c("High Risk" = "red", "Moderate Risk" = "orange", "Population Risk" = "royalblue")
+  colours_fill <- c("High Risk" = "red", "Moderate Risk" = "orange", "Near-population Risk" = "royalblue")
   if (inc_low_risk == TRUE){
     colours_fill <- c(colours_fill, "Low Risk" = "yellowgreen")
   }
