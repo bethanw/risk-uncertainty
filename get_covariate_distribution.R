@@ -158,7 +158,6 @@ get_covariate_distribution <- function(data_stack_for_mice_path,
   part_mice_long <- complete(part_mice_output, action = "long")
   part_mice <- part_mice_long[which(part_mice_long$.imp == max(part_mice_long$.imp)),]
   
-  # print(plot(part_mice_output))
   if (output_diagnostics == TRUE){
     print(plot(part_mice_output))
   }
