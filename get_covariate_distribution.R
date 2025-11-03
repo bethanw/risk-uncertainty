@@ -1,4 +1,29 @@
-get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALSE, gene_list = c("BRCA1r", "BRCA2r", "PALB2r", "CHEK2r", "ATMr", "RAD51Cr", "RAD51Dr", "BARD1r"), n_chain = 1, make_blank_stack = TRUE, save_long = FALSE, data_stack_for_mice_colclasses = c("factor", "factor", "factor", "factor", "factor", "numeric", "factor", "factor", "factor", "numeric", "numeric", "factor", "numeric", "numeric", "factor", "factor", "factor", "factor", "factor", "factor", "factor", "numeric", "factor"), variable_rfs = "all", blank_row_path, blank_row_colclasses = c(rep("character", 7), "numeric", "numeric", "character", rep("numeric", 6), rep("character", 21), "numeric", "numeric", "numeric", "character", "character", rep("numeric", 8), "character"), flb_path, fams_path, given_rfs = c(), rf_values = c(), quickpred_no = 50000, quickpred_cor = 1, inc_family = TRUE, n_repeats = 1000, n_iter = 10, indiv_yob, indiv_age, censoring_age, bc_prs_alpha = 0.44, save_filename = "default", gene_imp_type = "categorical", output_diagnostics = FALSE) {
+get_covariate_distribution <- function(data_stack_for_mice_path, 
+                                                fh_in_br = FALSE, 
+                                                gene_list = c("BRCA1r", "BRCA2r", "PALB2r", "CHEK2r", "ATMr", "RAD51Cr", "RAD51Dr", "BARD1r"), 
+                                                n_chain = 1, 
+                                                make_blank_stack = TRUE, 
+                                                data_stack_for_mice_colclasses, 
+                                                variable_rfs = "all", 
+                                                blank_row_path, 
+                                                blank_row_colclasses, 
+                                                flb_path, 
+                                                fams_path, 
+                                                given_rfs = c(), 
+                                                rf_values = c(), 
+                                                quickpred_no = 50000, 
+                                                quickpred_cor = 1, 
+                                                inc_family = TRUE, 
+                                                n_repeats = 1000, 
+                                                n_iter = 10, 
+                                                indiv_yob, 
+                                                indiv_age, 
+                                                censoring_age, 
+                                                bc_prs_alpha = 0.44, 
+                                                save_filepath = "default",
+                                                gene_imp_type = "categorical", 
+                                                output_diagnostics = FALSE, 
+                                                plot_density = FALSE) {
   
   # certain combinations of missing risk factors currently not working
   
@@ -49,6 +74,7 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
   
 
   # introduce the data
+  # data here is ukbiobank mixed with karma - relevant cols
   
   data_stack_for_mice <- read.csv(data_stack_for_mice_path)
   data_stack_for_mice <- data_stack_for_mice[,colnames(data_stack_for_mice) != "X"]
@@ -73,8 +99,6 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
       stack_blank_data[,i] <- as.numeric(stack_blank_data[,i])
     }
   }
-  
-  
   
   
   
@@ -122,6 +146,9 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
     stack_blank_data$Alcohol_01 <- as.factor(alcohol_01)
   }
   
+  if ("BMI" %in% mice_colnames){
+    stack_blank_data$BMI <- log(stack_blank_data$BMI)
+  }
   
   # do the mice
   
@@ -136,15 +163,20 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
     save_diagnostics_mice(part_mice_output)
   }
   
-  #save_dataset_for_boadicea(part_mice)    # save in case of future crash
-  # 
-  # if ("Alcohol" %in% variable_rfs){
-  #   for (i in 1:nrow(part_mice)){
-  #     if (!is.na(part_mice$Alcohol[i]) & part_mice$Alcohol[i] < 0){
-  #       part_mice$Alcohol[i] <- 0
-  #     }
-  #   }
-  # }
+  if (plot_density == TRUE){
+    #print(densityplot(part_mice_output))
+    print(densityplot(part_mice_output, ~Volpara))
+    #print(densityplot(part_mice_output, ~Menopause))
+    print(densityplot(part_mice_output, ~BMI))
+    #print(densityplot(part_mice_output, ~Parity))
+    print(densityplot(part_mice_output, ~OC_Use))
+    print(densityplot(part_mice_output, ~Menarche))
+    print(densityplot(part_mice_output, ~BC_PRS_z))
+    #print(densityplot(part_mice_output, ~mother.breast_v0))
+  }
+  
+  plot(convergence(part_mice_output, diagnostic = "gr")[1:10, 3])
+  
   
   if ("Menarche" %in% variable_rfs){
     for (i in 1:nrow(part_mice)){
@@ -154,13 +186,6 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
     }
   }
   
-  # if ("Volpara" %in% variable_rfs){
-  #   for (i in 1:nrow(part_mice)){
-  #     if (!is.na(part_mice$Volpara[i]) & part_mice$Volpara[i] < 0){
-  #       part_mice$Volpara[i] <- 1
-  #     }
-  #   }
-  # }
   
   
   # add back alcohol values
@@ -184,9 +209,6 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
     part_mice[which(part_mice$Alcohol_01 == 0),]$Alcohol <- rep(0, length(which(part_mice$Alcohol_01 == 0)))
   }
   
-  if (save_long == TRUE){
-    write.csv(part_mice)
-  }
   
   
   # add back flb
@@ -214,7 +236,6 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
     part_mice_flb$.id <- part_mice_nonzero_parity$.id[1:n_indiv]
     
     
-    #save_dataset_for_boadicea(part_mice_flb)
     
     # put dataset back together
     
@@ -272,6 +293,9 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
     full_mice_out$Volpara <- exp(full_mice_out$Volpara)
   }
   
+  if ("BMI" %in% mice_colnames){
+    full_mice_out$BMI <- exp(full_mice_out$BMI)
+  }
   
   # add back unused cols
   
@@ -450,7 +474,7 @@ get_covariate_distribution <- function(data_stack_for_mice_path, fh_in_br = FALS
 
   full_mice_out_boadicea$Mamm_density <- mamm_density
 
-  save_dataset_for_boadicea(full_mice_out_boadicea)
+  save_dataset(full_mice_out_boadicea, filepath = save_filepath)
 
 }
 
