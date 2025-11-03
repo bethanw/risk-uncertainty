@@ -163,15 +163,7 @@ get_covariate_distribution <- function(data_stack_for_mice_path,
   }
   
   if (plot_density == TRUE){
-    #print(densityplot(part_mice_output))
-    print(densityplot(part_mice_output, ~Volpara))
-    #print(densityplot(part_mice_output, ~Menopause))
-    print(densityplot(part_mice_output, ~BMI))
-    #print(densityplot(part_mice_output, ~Parity))
-    print(densityplot(part_mice_output, ~OC_Use))
-    print(densityplot(part_mice_output, ~Menarche))
-    print(densityplot(part_mice_output, ~BC_PRS_z))
-    #print(densityplot(part_mice_output, ~mother.breast_v0))
+    print(densityplot(part_mice_output))
   }
   
   plot(convergence(part_mice_output, diagnostic = "gr")[1:10, 3])
