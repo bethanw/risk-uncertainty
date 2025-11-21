@@ -6,8 +6,8 @@ R version: 2024.09.1+394 (2024.09.1+394)
 
 Libraries needed: 
 - "mice"
-- "ggplot2"
-- "ggsankey"
+- "ggplot2" (to make graphs; Figures 2, 4, S1, S2)
+- "ggsankey" (to make sankey plots; Figure 3)
 
 Functions: 
 
