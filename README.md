@@ -1,10 +1,10 @@
 Code to produce figures and impute missing covariates for work: "Modelling Individual-level Uncertainty due to Missing Data in Personalised Breast Cancer Risk Prediction"
 
-Uses BOADICEA-formatted UK Biobank and KARMA data
+Requires access to BOADICEA-formatted UK Biobank and KARMA data.
 
 R version: 2024.09.1+394 (2024.09.1+394)
 
-Libraries needed: 
+Libraries used: 
 - "mice"
 - "ggplot2" (to make graphs; Figures 2, 4, S1, S2)
 - "ggsankey" (to make sankey plots; Figure 3)
